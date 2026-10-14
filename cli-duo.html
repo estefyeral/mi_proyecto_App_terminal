@@ -1,0 +1,700 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>CLI Duo — Aprende la terminal desde cero</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet" />
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        fontFamily: { sans: ["Nunito", "ui-sans-serif", "system-ui", "sans-serif"] },
+        colors: {
+          duo: { green: "#58cc02", greenDark: "#46a302", blue: "#1cb0f6", blueDark: "#1899d6", red: "#ff4b4b", redDark: "#e03e3e", yellow: "#ffc800", gray: "#e5e5e5" }
+        }
+      }
+    }
+  };
+</script>
+<style>
+  body { font-family: Nunito, sans-serif; }
+  .term { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+  .btn-3d { transition: transform .05s ease; }
+  .btn-3d:active { transform: translateY(3px); box-shadow: none !important; }
+  .fade-in { animation: fade .25s ease; }
+  @keyframes fade { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+  .pulse-ring { animation: ring 1.6s infinite; }
+  @keyframes ring { 0%,100% { box-shadow: 0 0 0 0 rgba(88,204,2,.55); } 50% { box-shadow: 0 0 0 12px rgba(88,204,2,0); } }
+</style>
+</head>
+<body class="min-h-screen bg-slate-100 text-slate-800">
+  <div id="app"></div>
+
+<script>
+/* =========================================================
+   CLI DUO — Duolingo para la terminal
+   Arquitectura: datos (teoría + retos) -> estado -> render.
+   Todo el juego vive en memoria; el progreso persiste en localStorage.
+   ========================================================= */
+
+/* ---------- 1. TEORÍA: cada comando con la estructura obligatoria ---------- */
+const THEORY = {
+  pwd: {
+    name: "pwd",
+    tagline: "¿Dónde estoy?",
+    what: "pwd (print working directory) te dice la ruta absoluta de la carpeta en la que te encuentras ahora mismo.",
+    how: "La terminal mantiene una variable interna llamada directorio de trabajo actual (cwd). Al escribir pwd, el shell lee ese valor del proceso y lo imprime. No recorre el disco: solo consulta el estado en el que está parado.",
+    real: "Es lo primero que haces al abrir una terminal. Saber exactamente dónde estás evita borrar o modificar archivos equivocados.",
+    syntax: "pwd",
+    examples: [{ cmd: "pwd", out: "/home/estudiante" }]
+  },
+  ls: {
+    name: "ls",
+    tagline: "¿Qué hay aquí?",
+    what: "ls (list) muestra el contenido de un directorio: los archivos y subcarpetas que contiene.",
+    how: "El sistema consulta el inodo del directorio (una estructura que guarda qué entradas contiene) y lista sus nombres. Con la bandera -a incluye archivos ocultos y con -l muestra detalles.",
+    real: "Ver de un vistazo qué hay en una carpeta sin abrir el explorador gráfico, o confirmar que un archivo se descargó bien.",
+    syntax: "ls [opciones] [ruta]",
+    examples: [{ cmd: "ls", out: "documentos  proyectos  bienvenida.txt" }]
+  },
+  cd: {
+    name: "cd",
+    tagline: "Muévete entre carpetas",
+    what: "cd (change directory) cambia tu directorio de trabajo actual por otro.",
+    how: "El shell recalcula la ruta indicada respecto a la carpeta actual y actualiza su cwd. Usa .. para subir al padre, . para el actual, ~ para tu carpeta personal y / para la raíz.",
+    real: "Saltar entre tus proyectos sin ratón: cd proyectos, cd .., cd ~ y de vuelta.",
+    syntax: "cd [ruta]",
+    examples: [{ cmd: "cd documentos", out: "" }, { cmd: "pwd", out: "/home/estudiante/documentos" }]
+  },
+  mkdir: {
+    name: "mkdir",
+    tagline: "Crea carpetas",
+    what: "mkdir (make directory) crea una o varias carpetas nuevas.",
+    how: "El sistema reserva un nuevo inodo de tipo directorio y lo enlaza dentro de la carpeta actual. Con la bandera -p crea también los directorios intermedios que falten.",
+    real: "Organizar tu trabajo del día a día creando carpetas por proyecto, fecha o tipo de archivo.",
+    syntax: "mkdir [opciones] nombre",
+    examples: [{ cmd: "mkdir apuntes", out: "" }, { cmd: "ls", out: "apuntes  documentos  proyectos  bienvenida.txt" }]
+  },
+  touch: {
+    name: "touch",
+    tagline: "Crea archivos vacíos",
+    what: "touch crea un archivo vacío o, si ya existe, actualiza su fecha de última modificación.",
+    how: "Crea una entrada de inodo de tipo archivo con tamaño 0. Si el archivo ya existe, no lo altera: solo pone al día su marca de tiempo.",
+    real: "Preparar archivos en blanco para editarlos después, o forzar que una herramienta de compilación note un archivo como reciente.",
+    syntax: "touch nombre",
+    examples: [{ cmd: "touch ideas.txt", out: "" }, { cmd: "ls", out: "ideas.txt  apuntes  documentos" }]
+  },
+  cat: {
+    name: "cat",
+    tagline: "Lee archivos",
+    what: "cat (concatenate) muestra en pantalla el contenido de uno o varios archivos de texto.",
+    how: "Abre el archivo, lee sus bytes desde el disco y los escribe en la salida estándar (stdout). Si le pasas varios archivos, los muestra en secuencia como si fueran uno solo.",
+    real: "Leer rápido una nota, un README o un archivo de configuración sin abrir un editor.",
+    syntax: "cat archivo",
+    examples: [{ cmd: "cat bienvenida.txt", out: "¡Hola! Bienvenido a la terminal." }]
+  },
+  echo: {
+    name: "echo",
+    tagline: "Imprime y escribe texto",
+    what: "echo imprime el texto que le pasas. Combinado con > o >> escribe ese texto dentro de un archivo.",
+    how: "Toma sus argumentos y los envía a stdout. El símbolo > redirige esa salida y sobreescribe el archivo destino; >> la añade al final sin borrar lo anterior.",
+    real: "Crear archivos de texto al vuelo o añadir líneas a un registro sin abrir un editor.",
+    syntax: "echo texto [> archivo]",
+    examples: [{ cmd: "echo hola > saludo.txt", out: "" }, { cmd: "cat saludo.txt", out: "hola" }]
+  },
+  cp: {
+    name: "cp",
+    tagline: "Copia archivos",
+    what: "cp (copy) copia archivos o carpetas de una ubicación a otra.",
+    how: "Abre el origen, crea el archivo destino y copia su contenido byte a byte. Con -r copia carpetas completas de forma recursiva.",
+    real: "Hacer respaldos rápidos: cp informe.txt informe_backup.txt justo antes de editarlo.",
+    syntax: "cp origen destino",
+    examples: [{ cmd: "cp bienvenida.txt respaldo.txt", out: "" }, { cmd: "ls", out: "bienvenida.txt  respaldo.txt" }]
+  },
+  mv: {
+    name: "mv",
+    tagline: "Mueve y renombra",
+    what: "mv (move) mueve archivos o carpetas de un lugar a otro, y también sirve para renombrarlos.",
+    how: "Cambia el enlace del archivo: borra la entrada del origen y la crea en el destino. Si ambos están en el mismo disco no copia los datos, por eso es instantáneo.",
+    real: "Renombrar archivos sin abrir nada o moverlos a su carpeta correspondiente al terminar una tarea.",
+    syntax: "mv origen destino",
+    examples: [{ cmd: "mv ideas.txt documentos/", out: "" }, { cmd: "mv notas.txt memoria.txt", out: "" }]
+  },
+  rm: {
+    name: "rm",
+    tagline: "Borra (con cuidado)",
+    what: "rm (remove) elimina archivos y, con la bandera -r, carpetas con todo su contenido.",
+    how: "Elimina la entrada del directorio y libera el inodo asociado. No existe papelera: el borrado es inmediato y permanente.",
+    real: "Limpiar archivos temporales o resultados de pruebas que ya no necesitas. Con gran poder viene gran responsabilidad.",
+    syntax: "rm [opciones] archivo",
+    examples: [{ cmd: "rm respaldo.txt", out: "" }, { cmd: "ls", out: "bienvenida.txt  documentos" }]
+  }
+};
+
+/* ---------- 2. LECCIONES: teoría + práctica ---------- */
+const LESSONS = [
+  {
+    id: 0, title: "Ubicarse", icon: "🧭", color: "duo-green",
+    theory: ["pwd", "ls"],
+    steps: [
+      { type: "mc", q: "¿Qué te dice el comando pwd?", options: ["El contenido de la carpeta actual", "La ruta de la carpeta donde estás", "El usuario conectado", "La hora del sistema"], answer: 1, explain: "pwd = print working directory: imprime la ruta (cwd) actual." },
+      { type: "term", prompt: "Averigua en qué carpeta estás ahora mismo.", hint: "Escribe: pwd", check: ctx => ctx.cmd === "pwd" },
+      { type: "mc", q: "¿Para qué sirve ls?", options: ["Listar archivos y carpetas de un directorio", "Crear una carpeta", "Borrar un archivo", "Cambiar de carpeta"], answer: 0, explain: "ls (list) muestra el contenido del directorio." },
+      { type: "term", prompt: "Lista el contenido de la carpeta en la que estás.", hint: "Escribe: ls", check: ctx => ctx.cmd === "ls" }
+    ]
+  },
+  {
+    id: 1, title: "Navegar", icon: "🚶", color: "duo-blue",
+    theory: ["cd"],
+    steps: [
+      { type: "mc", q: "¿Qué símbolo representa la carpeta padre al usar cd?", options: ["~", ".", "..", "/"], answer: 2, explain: ".. sube un nivel; ~ es tu carpeta personal y / la raíz." },
+      { type: "term", prompt: "Entra en la carpeta 'documentos'.", hint: "Escribe: cd documentos", check: ctx => ctx.cmd === "cd" && pathStr(ctx.term.cwd) === "/home/estudiante/documentos" },
+      { type: "term", prompt: "Ahora vuelve a la carpeta anterior (sube un nivel).", hint: "Escribe: cd ..", check: ctx => ctx.cmd === "cd" && pathStr(ctx.term.cwd) === "/home/estudiante" }
+    ]
+  },
+  {
+    id: 2, title: "Crear", icon: "🏗️", color: "duo-yellow",
+    theory: ["mkdir", "touch"],
+    steps: [
+      { type: "mc", q: "Estás en /home/estudiante y ejecutas mkdir tareas. ¿Qué ocurre?", options: ["Se crea un archivo llamado tareas", "Se crea una carpeta tareas aquí dentro", "Se borra la carpeta tareas", "Da error siempre"], answer: 1, explain: "mkdir crea un nuevo directorio dentro del actual." },
+      { type: "term", prompt: "Crea una carpeta llamada 'tareas'.", hint: "Escribe: mkdir tareas", check: ctx => ctx.cmd === "mkdir" && isDir(ctx.term, "/home/estudiante/tareas") },
+      { type: "term", prompt: "Crea un archivo vacío llamado 'plan.txt'.", hint: "Escribe: touch plan.txt", check: ctx => ctx.cmd === "touch" && isFile(ctx.term, "/home/estudiante/plan.txt") }
+    ]
+  },
+  {
+    id: 3, title: "Leer y escribir", icon: "📝", color: "duo-red",
+    theory: ["cat", "echo"],
+    steps: [
+      { type: "mc", q: "¿Qué hace el símbolo > después de echo?", options: ["Suma números", "Redirige la salida y escribe en un archivo", "Borra el archivo", "Ejecuta el comando dos veces"], answer: 1, explain: "> sobreescribe el archivo destino con la salida de echo." },
+      { type: "term", prompt: "Muestra el contenido del archivo 'bienvenida.txt'.", hint: "Escribe: cat bienvenida.txt", check: ctx => ctx.cmd === "cat" && ctx.out.includes("Bienvenido") },
+      { type: "term", prompt: "Guarda la palabra 'hola' en un nuevo archivo 'saludo.txt'.", hint: "Escribe: echo hola > saludo.txt", check: ctx => isFile(ctx.term, "/home/estudiante/saludo.txt") && fileContent(ctx.term, "/home/estudiante/saludo.txt").includes("hola") }
+    ]
+  },
+  {
+    id: 4, title: "Organizar", icon: "📦", color: "duo-green",
+    theory: ["cp", "mv", "rm"],
+    steps: [
+      { type: "mc", q: "¿Cuál es la diferencia clave entre cp y mv?", options: ["Son idénticos", "cp copia (deja el original) y mv mueve (elimina el origen)", "mv copia y cp mueve", "cp solo funciona con carpetas"], answer: 1, explain: "cp conserva el origen; mv lo quita de su ubicación anterior." },
+      { type: "term", prompt: "Haz una copia de 'bienvenida.txt' llamada 'respaldo.txt'.", hint: "Escribe: cp bienvenida.txt respaldo.txt", check: ctx => ctx.cmd === "cp" && isFile(ctx.term, "/home/estudiante/respaldo.txt") },
+      { type: "term", prompt: "Mueve 'respaldo.txt' dentro de la carpeta 'proyectos'.", hint: "Escribe: mv respaldo.txt proyectos", check: ctx => ctx.cmd === "mv" && isFile(ctx.term, "/home/estudiante/proyectos/respaldo.txt") },
+      { type: "term", prompt: "Elimina el archivo 'saludo.txt'.", hint: "Escribe: rm saludo.txt", check: ctx => ctx.cmd === "rm" && !exists(ctx.term, "/home/estudiante/saludo.txt") }
+    ]
+  }
+];
+
+/* ---------- 3. VIRTUAL FILE SYSTEM ---------- */
+function defaultFs() {
+  return { type: "dir", children: {
+    home: { type: "dir", children: {
+      estudiante: { type: "dir", children: {
+        documentos: { type: "dir", children: {
+          "notas.txt": { type: "file", content: "Apuntes de la semana.\n" }
+        } },
+        proyectos: { type: "dir", children: {} },
+        "bienvenida.txt": { type: "file", content: "¡Hola! Bienvenido a la terminal.\n" }
+      } }
+    } },
+    etc: { type: "dir", children: {
+      hosts: { type: "file", content: "127.0.0.1 localhost\n" }
+    } }
+  } };
+}
+function cloneFs() { return JSON.parse(JSON.stringify(defaultFs())); }
+function newTerm() { return { fs: cloneFs(), cwd: ["home", "estudiante"], lines: [] }; }
+
+function getNode(fs, path) {
+  let node = fs;
+  for (const seg of path) {
+    if (!node || node.type !== "dir" || !node.children[seg]) return null;
+    node = node.children[seg];
+  }
+  return node;
+}
+function pathStr(path) { return "/" + path.join("/"); }
+function resolve(term, arg) {
+  if (!arg || arg === "~") return arg === "~" ? ["home", "estudiante"] : term.cwd.slice();
+  let base = arg.startsWith("/") ? [] : term.cwd.slice();
+  for (const seg of arg.split("/")) {
+    if (seg === "" || seg === ".") continue;
+    if (seg === "..") { if (base.length) base.pop(); continue; }
+    if (seg === "~") { base = ["home", "estudiante"]; continue; }
+    base.push(seg);
+  }
+  return base;
+}
+function exists(term, abs) { return !!getNode(term.fs, abs.split("/").filter(Boolean)); }
+function isDir(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return !!n && n.type === "dir"; }
+function isFile(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return !!n && n.type === "file"; }
+function fileContent(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return n && n.type === "file" ? n.content : ""; }
+
+/* ---------- 4. MOTOR DE LA TERMINAL ---------- */
+function err(msg) { return { out: msg + "\n", error: true }; }
+
+function runCommand(term, raw) {
+  const line = raw.trim();
+  if (!line) return { out: "" };
+  const parts = line.split(/\s+/);
+  const cmd = parts[0];
+  const args = parts.slice(1);
+
+  switch (cmd) {
+    case "pwd":
+      return { out: pathStr(term.cwd) + "\n" };
+
+    case "ls": {
+      const target = args[0] ? resolve(term, args[0]) : term.cwd.slice();
+      const node = getNode(term.fs, target);
+      if (!node) return err("ls: " + args[0] + ": No such file or directory");
+      if (node.type === "file") return { out: target[target.length - 1] + "\n" };
+      const names = Object.keys(node.children).sort((a, b) => {
+        const da = node.children[a].type === "dir", db = node.children[b].type === "dir";
+        return da === db ? a.localeCompare(b) : (da ? -1 : 1);
+      });
+      return { out: names.length ? names.join("  ") + "\n" : "" };
+    }
+
+    case "cd": {
+      const target = resolve(term, args[0] || "~");
+      const node = getNode(term.fs, target);
+      if (!node) return err("cd: " + (args[0] || "") + ": No such file or directory");
+      if (node.type !== "dir") return err("cd: " + args[0] + ": Not a directory");
+      term.cwd = target;
+      return { out: "" };
+    }
+
+    case "mkdir": {
+      if (!args[0]) return err("mkdir: falta el nombre del directorio");
+      const target = resolve(term, args[0]);
+      const parent = getNode(term.fs, target.slice(0, -1));
+      const name = target[target.length - 1];
+      if (!parent || parent.type !== "dir") return err("mkdir: no se puede crear '" + args[0] + "'");
+      if (parent.children[name]) return err("mkdir: no se puede crear '" + name + "': ya existe");
+      parent.children[name] = { type: "dir", children: {} };
+      return { out: "" };
+    }
+
+    case "touch": {
+      if (!args[0]) return err("touch: falta el nombre del archivo");
+      const target = resolve(term, args[0]);
+      const parent = getNode(term.fs, target.slice(0, -1));
+      const name = target[target.length - 1];
+      if (!parent || parent.type !== "dir") return err("touch: no se puede crear '" + args[0] + "'");
+      if (!parent.children[name]) parent.children[name] = { type: "file", content: "" };
+      return { out: "" };
+    }
+
+    case "cat": {
+      if (!args[0]) return err("cat: falta el archivo");
+      const node = getNode(term.fs, resolve(term, args[0]));
+      if (!node) return err("cat: " + args[0] + ": No such file or directory");
+      if (node.type === "dir") return err("cat: " + args[0] + ": Es un directorio");
+      return { out: node.content };
+    }
+
+    case "echo": {
+      const rest = line.slice(4);
+      const idx2 = rest.indexOf(">>"), idx1 = rest.indexOf(">");
+      let text = rest, file = null, append = false;
+      if (idx2 !== -1) { append = true; text = rest.slice(0, idx2); file = rest.slice(idx2 + 2).trim(); }
+      else if (idx1 !== -1) { text = rest.slice(0, idx1); file = rest.slice(idx1 + 1).trim(); }
+      text = text.trim().replace(/^["']|["']$/g, "");
+      if (file) {
+        const target = resolve(term, file);
+        const parent = getNode(term.fs, target.slice(0, -1));
+        const name = target[target.length - 1];
+        if (!parent || parent.type !== "dir") return err("echo: " + file + ": No such file or directory");
+        if (parent.children[name] && append) parent.children[name].content += text + "\n";
+        else parent.children[name] = { type: "file", content: text + "\n" };
+        return { out: "" };
+      }
+      return { out: text + "\n" };
+    }
+
+    case "cp": {
+      if (!args[0] || !args[1]) return err("cp: se necesita origen y destino");
+      const src = getNode(term.fs, resolve(term, args[0]));
+      if (!src) return err("cp: " + args[0] + ": No such file or directory");
+      let dest = resolve(term, args[1]);
+      let destNode = getNode(term.fs, dest);
+      if (destNode && destNode.type === "dir") dest = dest.concat(args[0].split("/").pop());
+      const parent = getNode(term.fs, dest.slice(0, -1));
+      if (!parent) return err("cp: " + args[1] + ": No such file or directory");
+      parent.children[dest[dest.length - 1]] = JSON.parse(JSON.stringify(src));
+      return { out: "" };
+    }
+
+    case "mv": {
+      if (!args[0] || !args[1]) return err("mv: se necesita origen y destino");
+      const srcPath = resolve(term, args[0]);
+      const src = getNode(term.fs, srcPath);
+      if (!src) return err("mv: " + args[0] + ": No such file or directory");
+      let dest = resolve(term, args[1]);
+      let destNode = getNode(term.fs, dest);
+      let target;
+      if (destNode && destNode.type === "dir") target = dest.concat(args[0].split("/").pop());
+      else target = dest;
+      const parent = getNode(term.fs, target.slice(0, -1));
+      const srcParent = getNode(term.fs, srcPath.slice(0, -1));
+      if (!parent) return err("mv: " + args[1] + ": No such file or directory");
+      srcParent.children[srcPath[srcPath.length - 1]] = undefined;
+      delete srcParent.children[srcPath[srcPath.length - 1]];
+      parent.children[target[target.length - 1]] = src;
+      return { out: "" };
+    }
+
+    case "rm": {
+      const file = args.find(a => !a.startsWith("-"));
+      if (!file) return err("rm: falta el archivo");
+      const p = resolve(term, file);
+      const node = getNode(term.fs, p);
+      if (!node) return err("rm: " + file + ": No such file or directory");
+      const parent = getNode(term.fs, p.slice(0, -1));
+      delete parent.children[p[p.length - 1]];
+      return { out: "" };
+    }
+
+    case "clear":
+      return { out: "", clear: true };
+
+    case "help":
+      return { out: "Comandos disponibles: pwd, ls, cd, mkdir, touch, cat, echo, cp, mv, rm, clear.\n" };
+
+    default:
+      return err(cmd + ": command not found");
+  }
+}
+
+/* ---------- 5. ESTADO + PERSISTENCIA ---------- */
+const STORE_KEY = "cli_duo_state_v1";
+function defaultProgress() { return { xp: 0, completed: [], streak: 0, lastDate: null }; }
+function loadProgress() {
+  try { const raw = localStorage.getItem(STORE_KEY); return raw ? Object.assign(defaultProgress(), JSON.parse(raw)) : defaultProgress(); }
+  catch (e) { return defaultProgress(); }
+}
+function saveProgress() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(state.progress)); } catch (e) {}
+}
+function todayStr() { return new Date().toISOString().slice(0, 10); }
+function touchStreak() {
+  const p = state.progress, t = todayStr();
+  if (p.lastDate === t) return;
+  const y = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+  p.streak = p.lastDate === y ? p.streak + 1 : 1;
+  p.lastDate = t;
+  saveProgress();
+}
+
+let state = {
+  screen: "home",
+  progress: loadProgress(),
+  lesson: null, cardIndex: 0,
+  steps: [], stepIndex: 0, hearts: 3, earned: 0,
+  term: null, awaiting: false, wrongTries: 0,
+  feedback: null
+};
+
+/* ---------- 6. VISTAS ---------- */
+const app = document.getElementById("app");
+
+function header() {
+  const p = state.progress;
+  return `
+  <header class="sticky top-0 z-20 bg-white/90 backdrop-blur border-b border-slate-200">
+    <div class="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
+      <button onclick="goHome()" class="flex items-center gap-2 font-black text-xl text-duo-green">
+        <span class="text-2xl">🐧</span> CLI&nbsp;Duo
+      </button>
+      <div class="flex items-center gap-3 text-sm font-bold">
+        <span class="flex items-center gap-1 text-duo-yellow">🔥 ${p.streak}</span>
+        <span class="flex items-center gap-1 text-duo-blue">⭐ ${p.xp} XP</span>
+      </div>
+    </div>
+  </header>`;
+}
+
+function renderHome() {
+  const p = state.progress;
+  const nodes = LESSONS.map((l, i) => {
+    const unlocked = i === 0 || p.completed.includes(LESSONS[i - 1].id);
+    const done = p.completed.includes(l.id);
+    const offset = i % 2 === 0 ? "translate-x-8" : "-translate-x-8";
+    return `
+    <div class="flex flex-col items-center ${offset}">
+      <button ${unlocked ? `onclick="startLesson(${l.id})"` : "disabled"}
+        class="relative w-20 h-20 rounded-full flex items-center justify-center text-3xl font-black btn-3d
+          ${done ? "bg-duo-green text-white shadow-[0_5px_0_#46a302]" :
+                    unlocked ? "bg-duo-green text-white shadow-[0_5px_0_#46a302] pulse-ring" :
+                               "bg-slate-200 text-slate-400 shadow-[0_5px_0_#cbd5e1] cursor-not-allowed"}">
+        ${done ? "✓" : unlocked ? l.icon : "🔒"}
+      </button>
+      <span class="mt-2 text-xs font-bold ${unlocked ? "text-slate-700" : "text-slate-400"}">${l.title}</span>
+    </div>
+    ${i < LESSONS.length - 1 ? `<div class="w-2 h-8 ${p.completed.includes(l.id) ? "bg-duo-green" : "bg-slate-200"} rounded-full"></div>` : ""}`;
+  }).join("");
+
+  app.innerHTML = `${header()}
+  <main class="max-w-3xl mx-auto px-4 py-8 fade-in">
+    <div class="text-center mb-8">
+      <h1 class="text-3xl font-black text-slate-800">Aprende la terminal desde cero</h1>
+      <p class="text-slate-500 font-semibold mt-1">Teoría clara + práctica real con una terminal de verdad.</p>
+    </div>
+    <div class="bg-white rounded-3xl border-2 border-slate-200 p-8 flex flex-col items-center gap-2">
+      ${nodes}
+    </div>
+    <div class="mt-6 flex justify-center">
+      <button onclick="resetAll()" class="text-xs font-bold text-slate-400 hover:text-duo-red underline">Reiniciar todo el progreso</button>
+    </div>
+  </main>`;
+}
+
+function renderTheory() {
+  const lesson = state.lesson;
+  const cmdKey = lesson.theory[state.cardIndex];
+  const t = THEORY[cmdKey];
+  const total = lesson.theory.length;
+  const isLast = state.cardIndex === total - 1;
+
+  const examples = t.examples.map(e => `
+    <div class="term bg-slate-900 text-slate-100 rounded-xl overflow-hidden text-sm">
+      <div class="flex"><span class="text-duo-green px-3 py-1">$</span><span class="py-1">${esc(e.cmd)}</span></div>
+      ${e.out ? `<div class="text-slate-300 px-3 pb-2">${esc(e.out)}</div>` : ""}
+    </div>`).join("");
+
+  const section = (icon, title, body) => `
+    <div class="border-l-4 border-duo-green pl-4">
+      <h3 class="font-black text-slate-800 flex items-center gap-2">${icon} ${title}</h3>
+      <p class="text-slate-600 font-medium mt-1">${body}</p>
+    </div>`;
+
+  app.innerHTML = `${header()}
+  <main class="max-w-3xl mx-auto px-4 py-6 fade-in">
+    <div class="mb-4">
+      <div class="flex items-center justify-between text-sm font-bold text-slate-400">
+        <span>Fase de teoría</span><span>${state.cardIndex + 1} / ${total}</span>
+      </div>
+      <div class="h-3 bg-slate-200 rounded-full mt-2 overflow-hidden">
+        <div class="h-full bg-duo-green transition-all" style="width:${((state.cardIndex + 1) / total) * 100}%"></div>
+      </div>
+    </div>
+
+    <div class="bg-white rounded-3xl border-2 border-slate-200 p-6 md:p-8">
+      <div class="flex items-center gap-3 mb-6">
+        <span class="term bg-slate-900 text-duo-green font-bold px-3 py-1 rounded-lg">${t.name}</span>
+        <span class="text-slate-500 font-bold">${t.tagline}</span>
+      </div>
+      <div class="space-y-5">
+        ${section("🔎", "¿Qué es y qué hace?", t.what)}
+        ${section("⚙️", "¿Cómo funciona internamente?", t.how)}
+        ${section("💼", "¿Para qué sirve en la vida real?", t.real)}
+        <div class="border-l-4 border-duo-blue pl-4">
+          <h3 class="font-black text-slate-800">⌨️ ¿Cómo se usa?</h3>
+          <p class="text-slate-600 font-medium mt-1">Sintaxis: <code class="term bg-slate-100 px-2 py-0.5 rounded">${esc(t.syntax)}</code></p>
+          <div class="mt-3 space-y-2">${examples}</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-between mt-6">
+      <button onclick="prevCard()" class="font-black text-slate-400 px-4 py-3 rounded-2xl hover:bg-slate-200" ${state.cardIndex === 0 ? "disabled" : ""}>Atrás</button>
+      <button onclick="nextCard()" class="bg-duo-green text-white font-black px-8 py-3 rounded-2xl shadow-[0_5px_0_#46a302] btn-3d hover:brightness-105">
+        ${isLast ? "¡Ir a la práctica!" : "Siguiente"}
+      </button>
+    </div>
+  </main>`;
+}
+
+function heartRow() {
+  let h = "";
+  for (let i = 0; i < 3; i++) h += i < state.hearts ? "❤️" : "🤍";
+  return h;
+}
+
+function renderPractice() {
+  const step = state.steps[state.stepIndex];
+  const pct = (state.stepIndex / state.steps.length) * 100;
+
+  let body = "";
+  if (step.type === "mc") {
+    body = `
+      <h2 class="text-2xl font-black text-slate-800 mb-6">${esc(step.q)}</h2>
+      <div class="grid gap-3">
+        ${step.options.map((o, i) => {
+          let cls = "border-slate-200 hover:bg-slate-50";
+          if (state.feedback) {
+            if (i === step.answer) cls = "border-duo-green bg-green-50";
+            else if (i === state.feedback.picked) cls = "border-duo-red bg-red-50";
+          }
+          return `<button ${state.feedback ? "disabled" : ""} onclick="answerMC(${i})"
+            class="text-left font-bold border-2 rounded-2xl px-5 py-4 ${cls} transition">${esc(o)}</button>`;
+        }).join("")}
+      </div>`;
+  } else {
+    const lines = (state.term ? state.term.lines : []).map(l =>
+      l.type === "cmd"
+        ? `<div class="text-slate-100"><span class="text-duo-green">estudiante@cli</span><span class="text-duo-blue">:${pathStr(state.term.cwd)}$</span> ${esc(l.text)}</div>`
+        : `<div class="${l.error ? "text-duo-red" : "text-slate-300"}">${esc(l.text)}</div>`
+    ).join("");
+    body = `
+      <h2 class="text-2xl font-black text-slate-800 mb-2">⌨️ ${esc(step.prompt)}</h2>
+      <p class="text-slate-500 font-semibold mb-4">Escribe el comando y pulsa Enter.</p>
+      <div class="term bg-slate-900 rounded-2xl p-4 h-64 overflow-y-auto text-sm" id="termBody">
+        ${lines}
+        <div class="text-slate-100 flex items-center gap-1">
+          <span class="text-duo-green">estudiante@cli</span><span class="text-duo-blue">:${pathStr(state.term.cwd)}$</span>
+          <input id="termInput" autocomplete="off" spellcheck="false"
+            class="flex-1 bg-transparent outline-none text-slate-100 caret-duo-green" />
+        </div>
+      </div>
+      ${state.wrongTries >= 2 ? `<p class="mt-3 text-sm font-bold text-duo-yellow">💡 Pista: ${esc(step.hint)}</p>` : ""}
+      <div id="termMsg" class="mt-2 text-sm font-bold h-5"></div>`;
+  }
+
+  app.innerHTML = `${header()}
+  <main class="max-w-3xl mx-auto px-4 py-6 fade-in">
+    <div class="flex items-center gap-4 mb-6">
+      <div class="flex-1 h-3 bg-slate-200 rounded-full overflow-hidden">
+        <div class="h-full bg-duo-green transition-all" style="width:${pct}%"></div>
+      </div>
+      <span class="font-black text-lg whitespace-nowrap">${heartRow()}</span>
+    </div>
+    <div class="bg-white rounded-3xl border-2 border-slate-200 p-6 md:p-8">${body}</div>
+  </main>`;
+
+  if (step.type === "term" && !state.feedback) {
+    const input = document.getElementById("termInput");
+    if (input) { input.focus(); input.addEventListener("keydown", e => { if (e.key === "Enter") submitTerm(input.value); }); }
+    const body = document.getElementById("termBody"); if (body) body.scrollTop = body.scrollHeight;
+  }
+}
+
+function renderResult(success) {
+  const lesson = state.lesson;
+  app.innerHTML = `${header()}
+  <main class="max-w-3xl mx-auto px-4 py-12 text-center fade-in">
+    <div class="text-6xl mb-4">${success ? "🎉" : "💔"}</div>
+    <h1 class="text-3xl font-black ${success ? "text-duo-green" : "text-duo-red"}">
+      ${success ? "¡Lección completada!" : "Te quedaste sin vidas"}
+    </h1>
+    <p class="text-slate-500 font-semibold mt-2">
+      ${success ? "Conectaste la teoría con la práctica real." : "Repasa la teoría y vuelve a intentarlo."}
+    </p>
+    ${success ? `<div class="flex justify-center gap-6 mt-6">
+      <div class="bg-white border-2 border-slate-200 rounded-2xl px-6 py-4"><div class="text-2xl font-black text-duo-blue">+${state.earned}</div><div class="text-xs font-bold text-slate-400">XP</div></div>
+      <div class="bg-white border-2 border-slate-200 rounded-2xl px-6 py-4"><div class="text-2xl font-black text-duo-yellow">${state.progress.streak}</div><div class="text-xs font-bold text-slate-400">RACHA 🔥</div></div>
+    </div>` : ""}
+    <div class="mt-10 flex justify-center gap-3">
+      <button onclick="goHome()" class="font-black text-slate-500 px-6 py-3 rounded-2xl hover:bg-slate-200">Inicio</button>
+      <button onclick="startLesson(${lesson.id})" class="bg-duo-green text-white font-black px-8 py-3 rounded-2xl shadow-[0_5px_0_#46a302] btn-3d">
+        ${success ? "Repetir" : "Intentar de nuevo"}
+      </button>
+    </div>
+  </main>`;
+}
+
+/* ---------- 7. LÓGICA DE JUEGO ---------- */
+function esc(s) { return String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c])); }
+
+function goHome() { state.screen = "home"; renderHome(); }
+
+function startLesson(id) {
+  state.lesson = LESSONS.find(l => l.id === id);
+  state.cardIndex = 0;
+  state.steps = state.lesson.steps;
+  state.stepIndex = 0;
+  state.hearts = 3;
+  state.earned = 0;
+  state.feedback = null;
+  state.wrongTries = 0;
+  state.term = newTerm();
+  state.screen = "theory";
+  renderTheory();
+}
+
+function prevCard() { if (state.cardIndex > 0) { state.cardIndex--; renderTheory(); } }
+function nextCard() {
+  if (state.cardIndex < state.lesson.theory.length - 1) { state.cardIndex++; renderTheory(); }
+  else { state.screen = "practice"; state.term = newTerm(); state.stepIndex = 0; state.wrongTries = 0; renderPractice(); }
+}
+
+function answerMC(i) {
+  if (state.feedback) return;
+  const step = state.steps[state.stepIndex];
+  state.feedback = { picked: i };
+  if (i === step.answer) { state.earned += 10; }
+  else { state.hearts--; }
+  renderPractice();
+  setTimeout(() => {
+    if (state.hearts <= 0) { state.feedback = null; renderResult(false); return; }
+    state.feedback = null;
+    state.stepIndex++;
+    state.wrongTries = 0;
+    if (state.stepIndex >= state.steps.length) finishLesson();
+    else renderPractice();
+  }, i === step.answer ? 850 : 1650);
+}
+
+function submitTerm(value) {
+  if (state.feedback) return;
+  const step = state.steps[state.stepIndex];
+  const term = state.term;
+  term.lines.push({ type: "cmd", text: value });
+  const result = runCommand(term, value);
+  if (result.clear) term.lines = [];
+  else if (result.out) term.lines.push({ type: "out", text: result.out.trimEnd(), error: result.error });
+
+  const parts = value.trim().split(/\s+/);
+  const ctx = { cmd: parts[0], args: parts.slice(1), out: result.out || "", term };
+  const ok = !result.error && typeof step.check === "function" && step.check(ctx);
+
+  if (ok) {
+    state.earned += 15;
+    state.feedback = { term: true };
+    renderPractice();
+    setTimeout(() => {
+      state.feedback = null;
+      state.stepIndex++;
+      state.wrongTries = 0;
+      if (state.stepIndex >= state.steps.length) finishLesson();
+      else renderPractice();
+    }, 700);
+  } else {
+    state.wrongTries++;
+    state.feedback = null;
+    renderPractice();
+    const msg = document.getElementById("termMsg");
+    if (msg) {
+      msg.textContent = result.error ? "⚠️ La terminal dio un error. Revisa el comando." : "❌ Aún no. Prueba otra vez con el comando correcto.";
+      msg.className = "mt-2 text-sm font-bold h-5 " + (result.error ? "text-duo-red" : "text-duo-red");
+    }
+  }
+}
+
+function finishLesson() {
+  const p = state.progress;
+  if (!p.completed.includes(state.lesson.id)) p.completed.push(state.lesson.id);
+  p.xp += state.earned;
+  touchStreak();
+  saveProgress();
+  renderResult(true);
+}
+
+function resetAll() {
+  if (confirm("¿Borrar XP, rachas y lecciones completadas?")) {
+    state.progress = defaultProgress();
+    saveProgress();
+    renderHome();
+  }
+}
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && (state.screen === "theory" || state.screen === "home") ) {
+    if (state.screen === "theory") nextCard();
+  }
+});
+
+renderHome();
+</script>
+</body>
+</html>
