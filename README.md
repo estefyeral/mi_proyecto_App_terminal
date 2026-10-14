@@ -1,4 +1,4 @@
-# CLI Duo — Aprende la terminal desde cero
+# CLI Terminal — Aprende la terminal desde cero
 
 Aplicación web interactiva tipo **Duolingo** para aprender a manejar la **terminal de comandos (CLI)** desde cero. Combina teoría clara con práctica real mediante un emulador de terminal y un sistema de archivos virtual.
 
