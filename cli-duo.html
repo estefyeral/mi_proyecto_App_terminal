@@ -54,10 +54,14 @@ const THEORY = {
     name: "ls",
     tagline: "¿Qué hay aquí?",
     what: "ls (list) muestra el contenido de un directorio: los archivos y subcarpetas que contiene.",
-    how: "El sistema consulta el inodo del directorio (una estructura que guarda qué entradas contiene) y lista sus nombres. Con la bandera -a incluye archivos ocultos y con -l muestra detalles.",
+    how: "El sistema consulta el inodo del directorio (una estructura que guarda qué entradas contiene) y lista sus nombres. Con -a incluye los archivos ocultos (que empiezan por punto) y con -l muestra formato largo con permisos y tamaño.",
     real: "Ver de un vistazo qué hay en una carpeta sin abrir el explorador gráfico, o confirmar que un archivo se descargó bien.",
-    syntax: "ls [opciones] [ruta]",
-    examples: [{ cmd: "ls", out: "documentos  proyectos  bienvenida.txt" }]
+    syntax: "ls [-l] [-a] [-h] [ruta]",
+    examples: [
+      { cmd: "ls", out: "documentos  proyectos  bienvenida.txt" },
+      { cmd: "ls -a", out: ".  ..  .bashrc  .config  documentos  proyectos  bienvenida.txt" },
+      { cmd: "ls -l", out: "drwxr-xr-x   4096  documentos" }
+    ]
   },
   cd: {
     name: "cd",
@@ -126,10 +130,133 @@ const THEORY = {
     name: "rm",
     tagline: "Borra (con cuidado)",
     what: "rm (remove) elimina archivos y, con la bandera -r, carpetas con todo su contenido.",
-    how: "Elimina la entrada del directorio y libera el inodo asociado. No existe papelera: el borrado es inmediato y permanente.",
+    how: "Elimina la entrada del directorio y libera el inodo asociado. Sin -r se niega a borrar una carpeta; con -r baja recursivamente por dentro y borra todo.",
     real: "Limpiar archivos temporales o resultados de pruebas que ya no necesitas. Con gran poder viene gran responsabilidad.",
-    syntax: "rm [opciones] archivo",
-    examples: [{ cmd: "rm respaldo.txt", out: "" }, { cmd: "ls", out: "bienvenida.txt  documentos" }]
+    syntax: "rm [-r] archivo",
+    examples: [
+      { cmd: "rm respaldo.txt", out: "" },
+      { cmd: "rm -r proyectos", out: "" }
+    ]
+  },
+  head: {
+    name: "head",
+    tagline: "Primeras líneas de un archivo",
+    what: "head muestra las primeras líneas de un archivo (10 por defecto).",
+    how: "Abre el archivo y lee solo el principio, cerrando sin procesar el resto. Con -n N decides cuántas líneas quieres ver.",
+    real: "Mirar el encabezado de un CSV enorme o las primeras líneas de un log para saber de qué trata.",
+    syntax: "head [-n N] archivo",
+    examples: [{ cmd: "head -n 2 notas.txt", out: "Apuntes de la semana.\nLunes: repasar comandos." }]
+  },
+  tail: {
+    name: "tail",
+    tagline: "Últimas líneas de un archivo",
+    what: "tail muestra las últimas líneas de un archivo (10 por defecto).",
+    how: "Se coloca al final del archivo y lee hacia atrás las últimas N líneas indicadas con -n. Es lo que usas para ver lo más reciente de un registro.",
+    real: "Revisar las últimas entradas de un archivo de registro cuando algo acaba de fallar.",
+    syntax: "tail [-n N] archivo",
+    examples: [{ cmd: "tail -n 1 notas.txt", out: "Miercoles: repasar permisos." }]
+  },
+  wc: {
+    name: "wc",
+    tagline: "Cuenta líneas, palabras y caracteres",
+    what: "wc (word count) cuenta líneas, palabras y caracteres de un archivo o de la entrada.",
+    how: "Recorre el texto contando saltos de línea (-l), palabras separadas por espacios (-w) y bytes (-c). Sin banderas muestra las tres cifras.",
+    real: "Saber cuántas líneas tiene un archivo o cuántas palabras escribiste, sin abrir un editor.",
+    syntax: "wc [-l|-w|-c] archivo",
+    examples: [
+      { cmd: "wc -l notas.txt", out: "4 notas.txt" },
+      { cmd: "ls | wc -l", out: "5" }
+    ]
+  },
+  grep: {
+    name: "grep",
+    tagline: "Busca texto dentro de archivos",
+    what: "grep busca un patrón de texto dentro de uno o varios archivos y muestra las líneas que coinciden.",
+    how: "Recorre el texto línea a línea y prueba el patrón en cada una. Con -i ignora mayúsculas y minúsculas, y con -n añade el número de línea. También lee de una tubería.",
+    real: "Encontrar en qué archivo aparece un error o una palabra concreta dentro de un proyecto enorme.",
+    syntax: "grep [opciones] patrón archivo",
+    examples: [{ cmd: "grep Martes notas.txt", out: "Martes: practicar tuberias." }]
+  },
+  find: {
+    name: "find",
+    tagline: "Busca archivos por nombre",
+    what: "find recorre un directorio (y todas sus subcarpetas) y encuentra archivos que cumplen una condición.",
+    how: "Empieza en la ruta indicada y desciende recursivamente por cada subdirectorio, evaluando pruebas como -name para comparar el nombre.",
+    real: "Localizar un archivo perdido dentro de un proyecto con cientos de carpetas.",
+    syntax: "find [ruta] -name patrón",
+    examples: [{ cmd: "find . -name \"*.txt\"", out: "./bienvenida.txt\n./documentos/notas.txt" }]
+  },
+  man: {
+    name: "man",
+    tagline: "El manual de cada comando",
+    what: "man (manual) muestra la documentación oficial de un comando: qué hace, sus opciones y su sintaxis.",
+    how: "Busca la página de manual del comando en el sistema y la muestra. Es la fuente de verdad cuando dudas de una bandera.",
+    real: "Consultar al instante cómo funciona un comando sin salir de la terminal ni buscar en internet.",
+    syntax: "man comando",
+    examples: [{ cmd: "man ls", out: "LS(1)\n\n  ls: muestra el contenido de un directorio..." }]
+  },
+  history: {
+    name: "history",
+    tagline: "Tus comandos anteriores",
+    what: "history lista, numerados, los comandos que has escrito en esta sesión.",
+    how: "El shell guarda cada línea que ejecutas en un buffer interno. history lo imprime; puedes repetir uno con !n.",
+    real: "Recuperar un comando largo que escribiste hace un rato sin volver a teclearlo entero.",
+    syntax: "history",
+    examples: [{ cmd: "history", out: "1  pwd\n2  ls -l\n3  history" }]
+  },
+  chmod: {
+    name: "chmod",
+    tagline: "Cambia los permisos",
+    what: "chmod (change mode) cambia los permisos de lectura (r), escritura (w) y ejecución (x) de un archivo o carpeta.",
+    how: "Cada archivo guarda 9 bits de permiso repartidos entre dueño, grupo y otros. Con notación numérica (755, 600) o simbólica (+x) se modifican esos bits.",
+    real: "Hacer ejecutable un script (chmod +x deploy.sh) o proteger un archivo para que solo su dueño lo lea (chmod 600 secreto.txt).",
+    syntax: "chmod modo archivo",
+    examples: [
+      { cmd: "chmod +x script.sh", out: "" },
+      { cmd: "chmod 600 secreto.txt", out: "" }
+    ]
+  },
+  comodines: {
+    name: "comodines",
+    tagline: "* y ? para varios archivos a la vez",
+    what: "Los comodines son símbolos que representan uno o varios caracteres, para operar sobre muchos archivos de golpe.",
+    how: "Antes de ejecutar el comando, el shell expande * (cualquier texto) y ? (un solo carácter) comparándolos con los nombres reales del directorio.",
+    real: "Borrar todas las temporales (rm *.tmp) o listar solo los de texto (ls *.txt).",
+    syntax: "comando patrón*   |   comando archivo?.txt",
+    examples: [{ cmd: "ls *.txt", out: "bienvenida.txt  notas.txt" }]
+  },
+  redireccion: {
+    name: "redirección",
+    tagline: ">, >> y <",
+    what: "La redirección cambia de dónde viene y a dónde va el texto de un comando, en lugar de la pantalla.",
+    how: "> envía la salida (stdout) a un archivo y lo sobreescribe; >> la añade al final; < toma la entrada (stdin) desde un archivo.",
+    real: "Guardar resultados en un archivo (ls -l > lista.txt) o añadir líneas a un registro sin borrar lo anterior (echo ok >> log.txt).",
+    syntax: "comando > archivo   |   comando >> archivo   |   comando < archivo",
+    examples: [{ cmd: "ls -l > lista.txt", out: "" }, { cmd: "echo fin >> log.txt", out: "" }]
+  },
+  tuberias: {
+    name: "tuberías",
+    tagline: "Conecta comandos con |",
+    what: "La tubería (|) conecta la salida de un comando con la entrada del siguiente, formando una cadena de procesamiento.",
+    how: "El shell crea un tubo en memoria: lo que el primer comando escribe en stdout, el segundo lo lee como stdin, en tiempo real.",
+    real: "Encadenar tareas: listar archivos y quedarte con los .txt (ls | grep txt), o contarlos (ls | wc -l).",
+    syntax: "comando1 | comando2",
+    examples: [
+      { cmd: "ls | grep txt", out: "bienvenida.txt\nnotas.txt" },
+      { cmd: "ls | wc -l", out: "5" }
+    ]
+  },
+  encadenar: {
+    name: "encadenar comandos",
+    tagline: "&& y ||",
+    what: "&& y || permiten ejecutar un segundo comando según si el primero tuvo éxito o falló.",
+    how: "&& ejecuta el siguiente solo si el anterior salió bien (código 0); || lo ejecuta solo si el anterior falló.",
+    real: "Crear una carpeta y entrar en ella de una vez (mkdir demo && cd demo), o avisar si algo falla.",
+    syntax: "comando1 && comando2   |   comando1 || comando2",
+    examples: [
+      { cmd: "mkdir demo && cd demo", out: "" },
+      { cmd: "cd noexiste || echo fallo", out: "fallo" }
+    ]
   }
 };
 
@@ -179,7 +306,56 @@ const LESSONS = [
       { type: "mc", q: "¿Cuál es la diferencia clave entre cp y mv?", options: ["Son idénticos", "cp copia (deja el original) y mv mueve (elimina el origen)", "mv copia y cp mueve", "cp solo funciona con carpetas"], answer: 1, explain: "cp conserva el origen; mv lo quita de su ubicación anterior." },
       { type: "term", prompt: "Haz una copia de 'bienvenida.txt' llamada 'respaldo.txt'.", hint: "Escribe: cp bienvenida.txt respaldo.txt", check: ctx => ctx.cmd === "cp" && isFile(ctx.term, "/home/estudiante/respaldo.txt") },
       { type: "term", prompt: "Mueve 'respaldo.txt' dentro de la carpeta 'proyectos'.", hint: "Escribe: mv respaldo.txt proyectos", check: ctx => ctx.cmd === "mv" && isFile(ctx.term, "/home/estudiante/proyectos/respaldo.txt") },
-      { type: "term", prompt: "Elimina el archivo 'saludo.txt'.", hint: "Escribe: rm saludo.txt", check: ctx => ctx.cmd === "rm" && !exists(ctx.term, "/home/estudiante/saludo.txt") }
+      { type: "term", prompt: "Elimina el archivo 'notas.txt'.", hint: "Escribe: rm notas.txt", check: ctx => ctx.cmd === "rm" && !exists(ctx.term, "/home/estudiante/notas.txt") }
+    ]
+  },
+  {
+    id: 5, title: "Banderas", icon: "🏷️", color: "duo-yellow",
+    theory: ["ls", "rm", "comodines"],
+    steps: [
+      { type: "mc", q: "¿Qué hace la bandera -a en 'ls -a'?", options: ["Ordena alfabéticamente", "Muestra también los archivos ocultos", "Borra todo", "Muestra solo las carpetas"], answer: 1, explain: "-a incluye los archivos ocultos, que empiezan por punto." },
+      { type: "term", prompt: "Lista el contenido en formato largo (con detalles).", hint: "Escribe: ls -l", check: ctx => ctx.cmd === "ls" && ctx.args.some(a => a.startsWith("-") && a.includes("l")) },
+      { type: "term", prompt: "Muestra también los archivos ocultos.", hint: "Escribe: ls -a", check: ctx => ctx.cmd === "ls" && ctx.args.some(a => a.startsWith("-") && a.includes("a")) },
+      { type: "mc", q: "¿Qué hace 'rm -r proyectos'?", options: ["Renombra la carpeta", "Borra la carpeta y todo su contenido", "Solo la lista", "Crea un respaldo"], answer: 1, explain: "-r borra de forma recursiva: la carpeta y todo lo que hay dentro." },
+      { type: "term", prompt: "Borra la carpeta 'proyectos' con todo su contenido.", hint: "Escribe: rm -r proyectos", check: ctx => ctx.cmd === "rm" && !exists(ctx.term, "/home/estudiante/proyectos") },
+      { type: "term", prompt: "Lista solo los archivos que terminan en .txt usando un comodín.", hint: "Escribe: ls *.txt", check: ctx => ctx.cmd === "ls" && ctx.args.join(" ").includes("*.txt") }
+    ]
+  },
+  {
+    id: 6, title: "Buscar y leer", icon: "🔍", color: "duo-blue",
+    theory: ["head", "tail", "wc", "grep", "find", "man"],
+    steps: [
+      { type: "mc", q: "¿Qué diferencia hay entre head y tail?", options: ["head muestra el inicio y tail el final del archivo", "Son idénticos", "head borra y tail crea", "head solo funciona con carpetas"], answer: 0, explain: "head lee desde el principio; tail desde el final." },
+      { type: "term", prompt: "Muestra las 2 primeras líneas de 'notas.txt'.", hint: "Escribe: head -n 2 notas.txt", check: ctx => ctx.cmd === "head" && ctx.out.includes("Apuntes") },
+      { type: "term", prompt: "Muestra la última línea de 'notas.txt'.", hint: "Escribe: tail -n 1 notas.txt", check: ctx => ctx.cmd === "tail" && ctx.out.includes("permisos") },
+      { type: "mc", q: "¿Para qué sirve grep?", options: ["Contar palabras", "Buscar un patrón de texto", "Crear carpetas", "Cambiar permisos"], answer: 1, explain: "grep muestra las líneas que coinciden con un patrón." },
+      { type: "term", prompt: "Busca la palabra 'Martes' dentro de 'notas.txt'.", hint: "Escribe: grep Martes notas.txt", check: ctx => ctx.cmd === "grep" && ctx.out.includes("Martes") },
+      { type: "term", prompt: "Cuenta cuántas líneas tiene 'notas.txt'.", hint: "Escribe: wc -l notas.txt", check: ctx => ctx.cmd === "wc" && ctx.out.trim().split(/\s+/)[0] === "4" },
+      { type: "term", prompt: "Encuentra todos los archivos .txt desde la carpeta actual.", hint: 'Escribe: find . -name "*.txt"', check: ctx => ctx.cmd === "find" && ctx.out.includes("notas.txt") },
+      { type: "term", prompt: "Consulta el manual del comando 'ls'.", hint: "Escribe: man ls", check: ctx => ctx.cmd === "man" }
+    ]
+  },
+  {
+    id: 7, title: "Tuberías", icon: "🔗", color: "duo-red",
+    theory: ["redireccion", "tuberias", "encadenar"],
+    steps: [
+      { type: "mc", q: "¿Qué hace el símbolo > ?", options: ["Suma números", "Redirige la salida a un archivo (sobreescribiendo)", "Lee de un archivo", "Ejecuta dos veces"], answer: 1, explain: "> envía el stdout del comando a un archivo." },
+      { type: "term", prompt: "Guarda la lista de archivos en 'lista.txt'.", hint: "Escribe: ls > lista.txt", check: ctx => isFile(ctx.term, "/home/estudiante/lista.txt") && fileContent(ctx.term, "/home/estudiante/lista.txt").length > 0 },
+      { type: "term", prompt: "Añade la línea 'fin' al final de 'lista.txt' sin borrar lo anterior.", hint: "Escribe: echo fin >> lista.txt", check: ctx => fileContent(ctx.term, "/home/estudiante/lista.txt").includes("fin") && fileContent(ctx.term, "/home/estudiante/lista.txt").includes("bienvenida") },
+      { type: "mc", q: "¿Qué hace una tubería | ?", options: ["Conecta la salida de un comando con la entrada del siguiente", "Borra archivos", "Duplica un archivo", "Crea una carpeta"], answer: 0, explain: "El stdout del primero se convierte en el stdin del segundo." },
+      { type: "term", prompt: "Con una tubería, quédate solo con los .txt.", hint: "Escribe: ls | grep txt", check: ctx => ctx.piped === true && ctx.out.includes("txt") },
+      { type: "term", prompt: "Cuenta cuántos elementos hay usando ls y wc con una tubería.", hint: "Escribe: ls | wc -l", check: ctx => ctx.piped === true && (ctx.cmds || []).includes("wc") },
+      { type: "term", prompt: "Crea la carpeta 'demo' y entra en ella en una sola línea.", hint: "Escribe: mkdir demo && cd demo", check: ctx => pathStr(ctx.term.cwd) === "/home/estudiante/demo" }
+    ]
+  },
+  {
+    id: 8, title: "Permisos", icon: "🔐", color: "duo-green",
+    theory: ["chmod"],
+    steps: [
+      { type: "mc", q: "¿Qué hace 'chmod +x script.sh'?", options: ["Le da permiso de ejecución", "Lo borra", "Lo renombra", "Lo copia"], answer: 0, explain: "+x añade el permiso de ejecución (x) al archivo." },
+      { type: "term", prompt: "Crea 'script.sh' y dale permiso de ejecución (+x).", hint: "Escribe: touch script.sh && chmod +x script.sh", check: ctx => isFile(ctx.term, "/home/estudiante/script.sh") && permOf(ctx.term, "/home/estudiante/script.sh") === "755" },
+      { type: "term", prompt: "Crea 'secreto.txt' y dale permisos 600 (solo el dueño lee y escribe).", hint: "Escribe: touch secreto.txt && chmod 600 secreto.txt", check: ctx => isFile(ctx.term, "/home/estudiante/secreto.txt") && permOf(ctx.term, "/home/estudiante/secreto.txt") === "600" },
+      { type: "mc", q: "¿Para qué sirve 'chmod 600' en un archivo sensible?", options: ["Que solo el dueño pueda leerlo y editarlo", "Que todos lo puedan borrar", "Comprimirlo", "Ejecutarlo"], answer: 0, explain: "600 = rw para el dueño y ningún permiso para grupo y otros." }
     ]
   }
 ];
@@ -189,10 +365,17 @@ function defaultFs() {
   return { type: "dir", children: {
     home: { type: "dir", children: {
       estudiante: { type: "dir", children: {
-        documentos: { type: "dir", children: {
-          "notas.txt": { type: "file", content: "Apuntes de la semana.\n" }
+        ".bashrc": { type: "file", content: "# Configuración del shell\nexport PATH=$PATH:/usr/local/bin\n" },
+        ".config": { type: "dir", children: {
+          "ajustes.json": { type: "file", content: '{"tema":"oscuro"}\n' }
         } },
-        proyectos: { type: "dir", children: {} },
+        documentos: { type: "dir", children: {
+          "historial.log": { type: "file", content: "login ok\nabrir editor\nguardar cambios\n" }
+        } },
+        proyectos: { type: "dir", children: {
+          "readme.txt": { type: "file", content: "Proyecto de practica.\n" }
+        } },
+        "notas.txt": { type: "file", content: "Apuntes de la semana.\nLunes: repasar comandos.\nMartes: practicar tuberias.\nMiercoles: repasar permisos.\n" },
         "bienvenida.txt": { type: "file", content: "¡Hola! Bienvenido a la terminal.\n" }
       } }
     } },
@@ -202,7 +385,7 @@ function defaultFs() {
   } };
 }
 function cloneFs() { return JSON.parse(JSON.stringify(defaultFs())); }
-function newTerm() { return { fs: cloneFs(), cwd: ["home", "estudiante"], lines: [] }; }
+function newTerm() { return { fs: cloneFs(), cwd: ["home", "estudiante"], lines: [], history: [] }; }
 
 function getNode(fs, path) {
   let node = fs;
@@ -228,31 +411,140 @@ function exists(term, abs) { return !!getNode(term.fs, abs.split("/").filter(Boo
 function isDir(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return !!n && n.type === "dir"; }
 function isFile(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return !!n && n.type === "file"; }
 function fileContent(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return n && n.type === "file" ? n.content : ""; }
+function permOf(term, abs) { const n = getNode(term.fs, abs.split("/").filter(Boolean)); return n ? (n.perm || (n.type === "dir" ? "755" : "644")) : null; }
+function permToSymbolic(p) {
+  const map = { "0": "---", "1": "--x", "2": "-w-", "3": "-wx", "4": "r--", "5": "r-x", "6": "rw-", "7": "rwx" };
+  return String(p || "644").split("").map(d => map[d] || "---").join("");
+}
+function wildcardRe(pat) {
+  return new RegExp("^" + String(pat).replace(/[.+^${}()|[\]\\]/g, "\\$&").replace(/\*/g, ".*").replace(/\?/g, ".") + "$");
+}
+function expandWildcard(term, arg) {
+  if (!/[*?]/.test(arg)) return [arg];
+  const p = resolve(term, arg);
+  const dir = getNode(term.fs, p.slice(0, -1));
+  if (!dir || dir.type !== "dir") return [];
+  const re = wildcardRe(p[p.length - 1]);
+  return Object.keys(dir.children).filter(n => re.test(n)).sort();
+}
 
 /* ---------- 4. MOTOR DE LA TERMINAL ---------- */
 function err(msg) { return { out: msg + "\n", error: true }; }
+function ok(out) { return { out: out || "", error: false }; }
+function clean(t) { return String(t).replace(/^["']|["']$/g, ""); }
 
-function runCommand(term, raw) {
-  const line = raw.trim();
-  if (!line) return { out: "" };
-  const parts = line.split(/\s+/);
-  const cmd = parts[0];
-  const args = parts.slice(1);
+/* Parser: primero separa por && y ||; luego cada trozo por | (tuberías); cada etapa detecta < > >> */
+function splitLogical(line) {
+  const parts = []; let buf = ""; let i = 0;
+  while (i < line.length) {
+    const c = line[i];
+    if (c === "&" && line[i + 1] === "&") { parts.push({ expr: buf, op: "&&" }); buf = ""; i += 2; }
+    else if (c === "|" && line[i + 1] === "|") { parts.push({ expr: buf, op: "||" }); buf = ""; i += 2; }
+    else { buf += c; i++; }
+  }
+  parts.push({ expr: buf, op: null });
+  return parts;
+}
+function splitPipeline(expr) { return expr.split("|").map(s => s.trim()).filter(Boolean); }
+function parseStage(s) {
+  const toks = s.trim().split(/\s+/).filter(Boolean);
+  let redirectOut = null, append = false, redirectIn = null;
+  const kept = [];
+  for (let i = 0; i < toks.length; i++) {
+    const t = toks[i];
+    if (t === ">") redirectOut = clean(toks[++i]);
+    else if (t === ">>") { redirectOut = clean(toks[++i]); append = true; }
+    else if (t === "<") redirectIn = clean(toks[++i]);
+    else if (t.startsWith(">>")) { redirectOut = clean(t.slice(2)); append = true; }
+    else if (t.startsWith(">")) redirectOut = clean(t.slice(1));
+    else if (t.startsWith("<")) redirectIn = clean(t.slice(1));
+    else kept.push(clean(t));
+  }
+  return { cmd: kept[0], args: kept.slice(1), redirectOut: redirectOut || null, append, redirectIn: redirectIn || null };
+}
+function writeTarget(term, file, content, append) {
+  const p = resolve(term, file);
+  const parent = getNode(term.fs, p.slice(0, -1));
+  const name = p[p.length - 1];
+  if (!parent || parent.type !== "dir") return;
+  if (parent.children[name] && append) parent.children[name].content += content;
+  else parent.children[name] = { type: "file", content: content, perm: "644" };
+}
 
+function runLine(term, raw) {
+  term.history = term.history || [];
+  term.lastCmds = [];
+  term.lastPiped = false;
+  const line = String(raw).trim();
+  if (!line) return ok("");
+  term.history.push(line);
+  const parts = splitLogical(line);
+  let last = runPipeline(term, splitPipeline(parts[0].expr));
+  let success = !last.error;
+  for (let k = 1; k < parts.length; k++) {
+    const op = parts[k - 1].op;
+    if ((op === "&&" && success) || (op === "||" && !success)) {
+      last = runPipeline(term, splitPipeline(parts[k].expr));
+      success = !last.error;
+    }
+  }
+  return last;
+}
+
+function runPipeline(term, stages) {
+  if (!stages.length) return ok("");
+  if (stages.length > 1) term.lastPiped = true;
+  let input = "";
+  let res = ok("");
+  for (let i = 0; i < stages.length; i++) {
+    const parsed = parseStage(stages[i]);
+    const isLast = i === stages.length - 1;
+    if (parsed.redirectIn) {
+      const n = getNode(term.fs, resolve(term, parsed.redirectIn));
+      input = n && n.type === "file" ? n.content : "";
+    }
+    if (parsed.cmd) term.lastCmds.push(parsed.cmd);
+    res = executeCommand(term, parsed.cmd, parsed.args, input, !isLast);
+    if (res.clear) return res;
+    if (parsed.redirectOut) { const hadError = res.error; writeTarget(term, parsed.redirectOut, res.out, parsed.append); res = { out: "", error: hadError }; }
+    input = res.out;
+  }
+  return res;
+}
+
+function executeCommand(term, cmd, args, stdin, inPipe) {
   switch (cmd) {
     case "pwd":
-      return { out: pathStr(term.cwd) + "\n" };
+      return ok(pathStr(term.cwd) + "\n");
 
     case "ls": {
-      const target = args[0] ? resolve(term, args[0]) : term.cwd.slice();
+      const flags = args.filter(a => a.startsWith("-")).join("");
+      let paths = args.filter(a => !a.startsWith("-"));
+      let wildcard = null;
+      if (paths[0] && /[*?]/.test(paths[0])) { wildcard = paths[0]; paths = []; }
+      const target = paths[0] ? resolve(term, paths[0]) : term.cwd.slice();
       const node = getNode(term.fs, target);
-      if (!node) return err("ls: " + args[0] + ": No such file or directory");
-      if (node.type === "file") return { out: target[target.length - 1] + "\n" };
-      const names = Object.keys(node.children).sort((a, b) => {
-        const da = node.children[a].type === "dir", db = node.children[b].type === "dir";
+      if (!node) return err("ls: " + (paths[0] || "") + ": No such file or directory");
+      let names = node.type === "file" ? [target[target.length - 1]] : Object.keys(node.children);
+      if (wildcard) { const re = wildcardRe(wildcard.split("/").pop()); names = names.filter(n => re.test(n)); }
+      if (!flags.includes("a")) names = names.filter(n => !n.startsWith("."));
+      names.sort((a, b) => {
+        const na = getNode(term.fs, target.concat(a)), nb = getNode(term.fs, target.concat(b));
+        const da = na && na.type === "dir", db = nb && nb.type === "dir";
         return da === db ? a.localeCompare(b) : (da ? -1 : 1);
       });
-      return { out: names.length ? names.join("  ") + "\n" : "" };
+      if (!names.length) return ok("");
+      if (flags.includes("l")) {
+        const lines = names.map(n => {
+          const nd = getNode(term.fs, target.concat(n));
+          const isd = nd && nd.type === "dir";
+          const perm = (nd && nd.perm) || (isd ? "755" : "644");
+          const size = isd ? 4096 : (nd ? nd.content.length : 0);
+          return (isd ? "d" : "-") + permToSymbolic(perm) + "  " + String(size).padStart(5) + "  " + n;
+        });
+        return ok("total " + names.length + "\n" + lines.join("\n") + "\n");
+      }
+      return ok(names.join(inPipe ? "\n" : "  ") + "\n");
     }
 
     case "cd": {
@@ -261,105 +553,207 @@ function runCommand(term, raw) {
       if (!node) return err("cd: " + (args[0] || "") + ": No such file or directory");
       if (node.type !== "dir") return err("cd: " + args[0] + ": Not a directory");
       term.cwd = target;
-      return { out: "" };
+      return ok("");
     }
 
     case "mkdir": {
-      if (!args[0]) return err("mkdir: falta el nombre del directorio");
-      const target = resolve(term, args[0]);
+      const name = args.find(a => !a.startsWith("-"));
+      if (!name) return err("mkdir: falta el nombre del directorio");
+      const target = resolve(term, name);
       const parent = getNode(term.fs, target.slice(0, -1));
-      const name = target[target.length - 1];
-      if (!parent || parent.type !== "dir") return err("mkdir: no se puede crear '" + args[0] + "'");
-      if (parent.children[name]) return err("mkdir: no se puede crear '" + name + "': ya existe");
-      parent.children[name] = { type: "dir", children: {} };
-      return { out: "" };
+      const base = target[target.length - 1];
+      if (!parent || parent.type !== "dir") return err("mkdir: no se puede crear '" + name + "'");
+      if (parent.children[base]) return err("mkdir: no se puede crear '" + base + "': ya existe");
+      parent.children[base] = { type: "dir", children: {}, perm: "755" };
+      return ok("");
     }
 
     case "touch": {
-      if (!args[0]) return err("touch: falta el nombre del archivo");
-      const target = resolve(term, args[0]);
+      const name = args.find(a => !a.startsWith("-"));
+      if (!name) return err("touch: falta el nombre del archivo");
+      const target = resolve(term, name);
       const parent = getNode(term.fs, target.slice(0, -1));
-      const name = target[target.length - 1];
-      if (!parent || parent.type !== "dir") return err("touch: no se puede crear '" + args[0] + "'");
-      if (!parent.children[name]) parent.children[name] = { type: "file", content: "" };
-      return { out: "" };
+      const base = target[target.length - 1];
+      if (!parent || parent.type !== "dir") return err("touch: no se puede crear '" + name + "'");
+      if (!parent.children[base]) parent.children[base] = { type: "file", content: "", perm: "644" };
+      return ok("");
     }
 
     case "cat": {
-      if (!args[0]) return err("cat: falta el archivo");
-      const node = getNode(term.fs, resolve(term, args[0]));
-      if (!node) return err("cat: " + args[0] + ": No such file or directory");
-      if (node.type === "dir") return err("cat: " + args[0] + ": Es un directorio");
-      return { out: node.content };
+      if (!args.length) return ok(stdin);
+      let out = "";
+      for (const a of args) {
+        for (const f of expandWildcard(term, a)) {
+          const node = getNode(term.fs, resolve(term, f));
+          if (!node) return err("cat: " + f + ": No such file or directory");
+          if (node.type === "dir") return err("cat: " + f + ": Es un directorio");
+          out += node.content;
+        }
+      }
+      return ok(out);
     }
 
-    case "echo": {
-      const rest = line.slice(4);
-      const idx2 = rest.indexOf(">>"), idx1 = rest.indexOf(">");
-      let text = rest, file = null, append = false;
-      if (idx2 !== -1) { append = true; text = rest.slice(0, idx2); file = rest.slice(idx2 + 2).trim(); }
-      else if (idx1 !== -1) { text = rest.slice(0, idx1); file = rest.slice(idx1 + 1).trim(); }
-      text = text.trim().replace(/^["']|["']$/g, "");
-      if (file) {
-        const target = resolve(term, file);
-        const parent = getNode(term.fs, target.slice(0, -1));
-        const name = target[target.length - 1];
-        if (!parent || parent.type !== "dir") return err("echo: " + file + ": No such file or directory");
-        if (parent.children[name] && append) parent.children[name].content += text + "\n";
-        else parent.children[name] = { type: "file", content: text + "\n" };
-        return { out: "" };
-      }
-      return { out: text + "\n" };
-    }
+    case "echo":
+      return ok(args.join(" ").replace(/^["']|["']$/g, "") + "\n");
 
     case "cp": {
-      if (!args[0] || !args[1]) return err("cp: se necesita origen y destino");
-      const src = getNode(term.fs, resolve(term, args[0]));
-      if (!src) return err("cp: " + args[0] + ": No such file or directory");
-      let dest = resolve(term, args[1]);
-      let destNode = getNode(term.fs, dest);
-      if (destNode && destNode.type === "dir") dest = dest.concat(args[0].split("/").pop());
+      const pos = args.filter(a => !a.startsWith("-"));
+      if (!pos[0] || !pos[1]) return err("cp: se necesita origen y destino");
+      const src = getNode(term.fs, resolve(term, pos[0]));
+      if (!src) return err("cp: " + pos[0] + ": No such file or directory");
+      let dest = resolve(term, pos[1]);
+      const destNode = getNode(term.fs, dest);
+      if (destNode && destNode.type === "dir") dest = dest.concat(pos[0].split("/").pop());
       const parent = getNode(term.fs, dest.slice(0, -1));
-      if (!parent) return err("cp: " + args[1] + ": No such file or directory");
+      if (!parent) return err("cp: " + pos[1] + ": No such file or directory");
       parent.children[dest[dest.length - 1]] = JSON.parse(JSON.stringify(src));
-      return { out: "" };
+      return ok("");
     }
 
     case "mv": {
-      if (!args[0] || !args[1]) return err("mv: se necesita origen y destino");
-      const srcPath = resolve(term, args[0]);
+      const pos = args.filter(a => !a.startsWith("-"));
+      if (!pos[0] || !pos[1]) return err("mv: se necesita origen y destino");
+      const srcPath = resolve(term, pos[0]);
       const src = getNode(term.fs, srcPath);
-      if (!src) return err("mv: " + args[0] + ": No such file or directory");
-      let dest = resolve(term, args[1]);
-      let destNode = getNode(term.fs, dest);
-      let target;
-      if (destNode && destNode.type === "dir") target = dest.concat(args[0].split("/").pop());
-      else target = dest;
+      if (!src) return err("mv: " + pos[0] + ": No such file or directory");
+      const dest = resolve(term, pos[1]);
+      const destNode = getNode(term.fs, dest);
+      const target = (destNode && destNode.type === "dir") ? dest.concat(pos[0].split("/").pop()) : dest;
       const parent = getNode(term.fs, target.slice(0, -1));
       const srcParent = getNode(term.fs, srcPath.slice(0, -1));
-      if (!parent) return err("mv: " + args[1] + ": No such file or directory");
-      srcParent.children[srcPath[srcPath.length - 1]] = undefined;
+      if (!parent) return err("mv: " + pos[1] + ": No such file or directory");
       delete srcParent.children[srcPath[srcPath.length - 1]];
       parent.children[target[target.length - 1]] = src;
-      return { out: "" };
+      return ok("");
     }
 
     case "rm": {
-      const file = args.find(a => !a.startsWith("-"));
-      if (!file) return err("rm: falta el archivo");
-      const p = resolve(term, file);
-      const node = getNode(term.fs, p);
-      if (!node) return err("rm: " + file + ": No such file or directory");
-      const parent = getNode(term.fs, p.slice(0, -1));
-      delete parent.children[p[p.length - 1]];
-      return { out: "" };
+      const recursive = args.some(a => a.startsWith("-") && a.includes("r"));
+      const targets = args.filter(a => !a.startsWith("-"));
+      if (!targets.length) return err("rm: falta el archivo");
+      const expanded = [];
+      for (const t of targets) for (const e of expandWildcard(term, t)) expanded.push(e);
+      for (const t of expanded) {
+        const p = resolve(term, t);
+        const node = getNode(term.fs, p);
+        if (!node) return err("rm: " + t + ": No such file or directory");
+        if (node.type === "dir" && !recursive) return err("rm: " + t + ": Es un directorio (usa -r)");
+        const parent = getNode(term.fs, p.slice(0, -1));
+        delete parent.children[p[p.length - 1]];
+      }
+      return ok("");
+    }
+
+    case "head":
+    case "tail": {
+      let n = 10;
+      const pos = [];
+      for (let i = 0; i < args.length; i++) {
+        if (args[i] === "-n") n = parseInt(args[++i], 10) || 10;
+        else if (args[i].startsWith("-n")) n = parseInt(args[i].slice(2), 10) || 10;
+        else if (!args[i].startsWith("-")) pos.push(args[i]);
+      }
+      let text = "";
+      if (pos.length === 0) text = stdin;
+      else {
+        const node = getNode(term.fs, resolve(term, pos[0]));
+        if (!node) return err(cmd + ": " + pos[0] + ": No such file or directory");
+        if (node.type === "dir") return err(cmd + ": " + pos[0] + ": Es un directorio");
+        text = node.content;
+      }
+      const lines = text.split("\n"); if (lines[lines.length - 1] === "") lines.pop();
+      const sel = cmd === "head" ? lines.slice(0, n) : lines.slice(-n);
+      return ok(sel.length ? sel.join("\n") + "\n" : "");
+    }
+
+    case "wc": {
+      let flags = "";
+      const pos = [];
+      for (const a of args) { if (a.startsWith("-") && a.length > 1) flags += a.slice(1); else pos.push(a); }
+      let text = "";
+      if (pos.length === 0) text = stdin;
+      else for (const f of pos) {
+        const node = getNode(term.fs, resolve(term, f));
+        if (!node) return err("wc: " + f + ": No such file or directory");
+        if (node.type === "file") text += node.content;
+      }
+      const body = text.replace(/\n$/, "");
+      const lines = body === "" ? 0 : body.split("\n").length;
+      const words = body.trim() === "" ? 0 : body.trim().split(/\s+/).length;
+      const chars = text.length;
+      const parts = [];
+      if (!flags) parts.push(lines, words, chars);
+      else { if (flags.includes("l")) parts.push(lines); if (flags.includes("w")) parts.push(words); if (flags.includes("c")) parts.push(chars); }
+      return ok(parts.join(" ") + (pos[0] ? " " + pos[0] : "") + "\n");
+    }
+
+    case "grep": {
+      let ignoreCase = false;
+      const pos = [];
+      for (const a of args) {
+        if (a === "-i" || (a.startsWith("-") && a.length > 1 && a.includes("i"))) ignoreCase = true;
+        else if (a.startsWith("-") && a.length > 1) { /* bandera sin efecto aquí */ }
+        else pos.push(a);
+      }
+      const pattern = pos.shift();
+      if (pattern === undefined) return err("grep: falta el patrón");
+      let text = "";
+      if (pos.length === 0) text = stdin;
+      else for (const f of pos) for (const m of expandWildcard(term, f)) {
+        const n = getNode(term.fs, resolve(term, m));
+        if (!n) return err("grep: " + m + ": No such file or directory");
+        if (n.type === "file") text += n.content;
+      }
+      const re = new RegExp(pattern.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), ignoreCase ? "i" : "");
+      const out = text.split("\n").filter(l => l !== "" && re.test(l)).join("\n");
+      return ok(out ? out + "\n" : "");
+    }
+
+    case "find": {
+      const startArg = args[0] && !args[0].startsWith("-") ? args[0] : ".";
+      const nameIdx = args.indexOf("-name");
+      const pattern = nameIdx !== -1 ? args[nameIdx + 1] : null;
+      const startPath = resolve(term, startArg);
+      const startNode = getNode(term.fs, startPath);
+      if (!startNode) return err("find: '" + startArg + "': No such file or directory");
+      const re = pattern ? wildcardRe(pattern) : null;
+      const results = [];
+      (function walk(pathArr, node, rel) {
+        const nm = pathArr[pathArr.length - 1];
+        if (re && re.test(nm)) results.push(rel);
+        if (node.type === "dir") for (const k of Object.keys(node.children)) walk(pathArr.concat(k), node.children[k], rel + "/" + k);
+      })(startPath, startNode, startArg === "." ? "." : startArg);
+      return ok(results.length ? results.join("\n") + "\n" : "");
+    }
+
+    case "man": {
+      const k = args[0];
+      if (!k) return err("man: ¿qué manual? Ej: man ls");
+      const t = THEORY[k];
+      if (!t) return ok("No hay entrada de manual para '" + k + "'.\n");
+      return ok(k.toUpperCase() + "(1)\n\n  " + t.what + "\n\n  Sintaxis: " + t.syntax + "\n");
+    }
+
+    case "history":
+      return ok((term.history || []).map((h, i) => String(i + 1).padStart(2, " ") + "  " + h).join("\n") + "\n");
+
+    case "chmod": {
+      const mode = args[0], file = args[1];
+      if (!mode || !file) return err("chmod: se necesita modo y archivo");
+      const node = getNode(term.fs, resolve(term, file));
+      if (!node) return err("chmod: " + file + ": No such file or directory");
+      if (/^[0-7]{3}$/.test(mode)) node.perm = mode;
+      else if (mode.startsWith("+")) node.perm = mode.includes("x") ? "755" : mode.includes("w") ? "666" : "644";
+      else if (mode.startsWith("-")) node.perm = node.type === "dir" ? "700" : "600";
+      else return err("chmod: modo inválido: " + mode);
+      return ok("");
     }
 
     case "clear":
       return { out: "", clear: true };
 
     case "help":
-      return { out: "Comandos disponibles: pwd, ls, cd, mkdir, touch, cat, echo, cp, mv, rm, clear.\n" };
+      return ok("Comandos: pwd, ls, cd, mkdir, touch, cat, echo, cp, mv, rm, head, tail, wc, grep, find, man, history, chmod, clear.\n");
 
     default:
       return err(cmd + ": command not found");
@@ -640,15 +1034,16 @@ function submitTerm(value) {
   const step = state.steps[state.stepIndex];
   const term = state.term;
   term.lines.push({ type: "cmd", text: value });
-  const result = runCommand(term, value);
+  const result = runLine(term, value);
   if (result.clear) term.lines = [];
   else if (result.out) term.lines.push({ type: "out", text: result.out.trimEnd(), error: result.error });
 
-  const parts = value.trim().split(/\s+/);
-  const ctx = { cmd: parts[0], args: parts.slice(1), out: result.out || "", term };
-  const ok = !result.error && typeof step.check === "function" && step.check(ctx);
+  const firstStages = splitPipeline(splitLogical(value)[0].expr);
+  const first = firstStages.length ? parseStage(firstStages[0]) : { cmd: "", args: [] };
+  const ctx = { cmd: first.cmd, args: first.args || [], out: result.out || "", term, cmds: (term.lastCmds || []).slice(), piped: !!term.lastPiped };
+  const passed = !result.error && typeof step.check === "function" && step.check(ctx);
 
-  if (ok) {
+  if (passed) {
     state.earned += 15;
     state.feedback = { term: true };
     renderPractice();
