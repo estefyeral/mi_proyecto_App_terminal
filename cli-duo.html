@@ -257,6 +257,19 @@ const THEORY = {
       { cmd: "mkdir demo && cd demo", out: "" },
       { cmd: "cd noexiste || echo fallo", out: "fallo" }
     ]
+  },
+  variables: {
+    name: "variables de entorno",
+    tagline: "Valores con nombre: $VAR",
+    what: "Una variable de entorno es un valor guardado bajo un nombre (por ejemplo HOME) que los programas pueden leer.",
+    how: "El shell guarda pares nombre=valor. Al escribir $NOMBRE, el shell sustituye ese texto por el valor justo antes de ejecutar el comando. export define la variable y la comparte con los programas.",
+    real: "Configurar rutas y ajustes: $HOME es tu carpeta personal y $PATH indica en qué carpetas buscar los ejecutables.",
+    syntax: "export NOMBRE=valor   |   echo $NOMBRE   |   env",
+    examples: [
+      { cmd: "echo $HOME", out: "/home/estudiante" },
+      { cmd: "export CURSO=terminal", out: "" },
+      { cmd: "echo $CURSO", out: "terminal" }
+    ]
   }
 };
 
@@ -357,6 +370,17 @@ const LESSONS = [
       { type: "term", prompt: "Crea 'secreto.txt' y dale permisos 600 (solo el dueño lee y escribe).", hint: "Escribe: touch secreto.txt && chmod 600 secreto.txt", check: ctx => isFile(ctx.term, "/home/estudiante/secreto.txt") && permOf(ctx.term, "/home/estudiante/secreto.txt") === "600" },
       { type: "mc", q: "¿Para qué sirve 'chmod 600' en un archivo sensible?", options: ["Que solo el dueño pueda leerlo y editarlo", "Que todos lo puedan borrar", "Comprimirlo", "Ejecutarlo"], answer: 0, explain: "600 = rw para el dueño y ningún permiso para grupo y otros." }
     ]
+  },
+  {
+    id: 9, title: "Variables", icon: "🌱", color: "duo-blue",
+    theory: ["variables"],
+    steps: [
+      { type: "mc", q: "¿Qué imprime 'echo $HOME'?", options: ["La palabra HOME", "La ruta de tu carpeta personal", "Nada", "Un error"], answer: 1, explain: "$HOME se sustituye por tu carpeta personal antes de ejecutar echo." },
+      { type: "term", prompt: "Muestra el valor de la variable HOME.", hint: "Escribe: echo $HOME", check: ctx => ctx.cmd === "echo" && ctx.out.includes("/home/estudiante") },
+      { type: "term", prompt: "Crea la variable CURSO con el valor 'terminal'.", hint: "Escribe: export CURSO=terminal", check: ctx => ctx.cmd === "export" && (ctx.term.env || {}).CURSO === "terminal" },
+      { type: "term", prompt: "Muestra el valor de la variable CURSO.", hint: "Escribe: echo $CURSO", check: ctx => ctx.cmd === "echo" && ctx.out.includes("terminal") },
+      { type: "term", prompt: "Lista todas las variables de entorno.", hint: "Escribe: env", check: ctx => ctx.cmd === "env" }
+    ]
   }
 ];
 
@@ -385,7 +409,7 @@ function defaultFs() {
   } };
 }
 function cloneFs() { return JSON.parse(JSON.stringify(defaultFs())); }
-function newTerm() { return { fs: cloneFs(), cwd: ["home", "estudiante"], lines: [], history: [] }; }
+function newTerm() { return { fs: cloneFs(), cwd: ["home", "estudiante"], lines: [], history: [], env: { HOME: "/home/estudiante", USER: "estudiante", PATH: "/usr/bin:/bin" } }; }
 
 function getNode(fs, path) {
   let node = fs;
@@ -426,6 +450,13 @@ function expandWildcard(term, arg) {
   if (!dir || dir.type !== "dir") return [];
   const re = wildcardRe(p[p.length - 1]);
   return Object.keys(dir.children).filter(n => re.test(n)).sort();
+}
+function expandVars(term, token) {
+  return String(token).replace(/\$([A-Za-z_][A-Za-z0-9_]*)/g, (m, name) => {
+    if (name === "PWD") return pathStr(term.cwd);
+    const env = term.env || {};
+    return env[name] !== undefined ? env[name] : "";
+  });
 }
 
 /* ---------- 4. MOTOR DE LA TERMINAL ---------- */
@@ -504,6 +535,7 @@ function runPipeline(term, stages) {
       input = n && n.type === "file" ? n.content : "";
     }
     if (parsed.cmd) term.lastCmds.push(parsed.cmd);
+    parsed.args = (parsed.args || []).map(a => expandVars(term, a));
     res = executeCommand(term, parsed.cmd, parsed.args, input, !isLast);
     if (res.clear) return res;
     if (parsed.redirectOut) { const hadError = res.error; writeTarget(term, parsed.redirectOut, res.out, parsed.append); res = { out: "", error: hadError }; }
@@ -749,11 +781,28 @@ function executeCommand(term, cmd, args, stdin, inPipe) {
       return ok("");
     }
 
+    case "export": {
+      term.env = term.env || {};
+      const assign = args.find(a => a.includes("="));
+      if (!assign) return ok(Object.entries(term.env).map(([k, v]) => k + "=" + v).join("\n") + "\n");
+      const idx = assign.indexOf("=");
+      const name = assign.slice(0, idx);
+      if (!name) return err("export: nombre de variable inválido");
+      term.env[name] = assign.slice(idx + 1);
+      return ok("");
+    }
+
+    case "env":
+    case "printenv": {
+      const rows = Object.assign({}, term.env || {}, { PWD: pathStr(term.cwd) });
+      return ok(Object.entries(rows).map(([k, v]) => k + "=" + v).join("\n") + "\n");
+    }
+
     case "clear":
       return { out: "", clear: true };
 
     case "help":
-      return ok("Comandos: pwd, ls, cd, mkdir, touch, cat, echo, cp, mv, rm, head, tail, wc, grep, find, man, history, chmod, clear.\n");
+      return ok("Comandos: pwd, ls, cd, mkdir, touch, cat, echo, cp, mv, rm, head, tail, wc, grep, find, man, history, chmod, export, env, clear.\n");
 
     default:
       return err(cmd + ": command not found");
@@ -837,7 +886,8 @@ function renderHome() {
     <div class="bg-white rounded-3xl border-2 border-slate-200 p-8 flex flex-col items-center gap-2">
       ${nodes}
     </div>
-    <div class="mt-6 flex justify-center">
+    <div class="mt-6 flex flex-col items-center gap-3">
+      <button onclick="startSandbox()" class="bg-duo-blue text-white font-black px-6 py-3 rounded-2xl shadow-[0_5px_0_#1899d6] btn-3d">⌨️ Terminal libre (sandbox)</button>
       <button onclick="resetAll()" class="text-xs font-bold text-slate-400 hover:text-duo-red underline">Reiniciar todo el progreso</button>
     </div>
   </main>`;
@@ -957,10 +1007,30 @@ function renderPractice() {
   </main>`;
 
   if (step.type === "term" && !state.feedback) {
-    const input = document.getElementById("termInput");
-    if (input) { input.focus(); input.addEventListener("keydown", e => { if (e.key === "Enter") submitTerm(input.value); }); }
-    const body = document.getElementById("termBody"); if (body) body.scrollTop = body.scrollHeight;
+    attachTermInput(state.term, v => submitTerm(v));
   }
+}
+
+function attachTermInput(term, onRun) {
+  const input = document.getElementById("termInput");
+  if (!input) return;
+  const body = document.getElementById("termBody");
+  if (body) body.scrollTop = body.scrollHeight;
+  input.focus();
+  term.histPos = (term.history || []).length;
+  input.addEventListener("keydown", e => {
+    const h = term.history || [];
+    if (e.key === "Enter") {
+      onRun(input.value);
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      if (term.histPos > 0) { term.histPos--; input.value = h[term.histPos] || ""; }
+    } else if (e.key === "ArrowDown") {
+      e.preventDefault();
+      if (term.histPos < h.length - 1) { term.histPos++; input.value = h[term.histPos] || ""; }
+      else { term.histPos = h.length; input.value = ""; }
+    }
+  });
 }
 
 function renderResult(success) {
@@ -985,6 +1055,53 @@ function renderResult(success) {
       </button>
     </div>
   </main>`;
+}
+
+function startSandbox() {
+  state.screen = "sandbox";
+  state.term = newTerm();
+  renderSandbox();
+}
+
+function resetSandbox() { state.term = newTerm(); renderSandbox(); }
+
+function runSandbox(value) {
+  const term = state.term;
+  term.lines.push({ type: "cmd", text: value });
+  const result = runLine(term, value);
+  if (result.clear) term.lines = [];
+  else if (result.out) term.lines.push({ type: "out", text: result.out.trimEnd(), error: result.error });
+  renderSandbox();
+}
+
+function renderSandbox() {
+  const term = state.term;
+  const lines = term.lines.map(l =>
+    l.type === "cmd"
+      ? `<div class="text-slate-100"><span class="text-duo-green">estudiante@cli</span><span class="text-duo-blue">:${pathStr(term.cwd)}$</span> ${esc(l.text)}</div>`
+      : `<div class="${l.error ? "text-duo-red" : "text-slate-300"}">${esc(l.text)}</div>`
+  ).join("");
+
+  app.innerHTML = `${header()}
+  <main class="max-w-3xl mx-auto px-4 py-6 fade-in">
+    <div class="flex items-center justify-between mb-4">
+      <h1 class="text-2xl font-black text-slate-800">⌨️ Terminal libre</h1>
+      <div class="flex gap-2">
+        <button onclick="resetSandbox()" class="text-sm font-bold text-slate-500 px-3 py-2 rounded-xl hover:bg-slate-200">Reiniciar</button>
+        <button onclick="goHome()" class="text-sm font-bold text-slate-500 px-3 py-2 rounded-xl hover:bg-slate-200">Inicio</button>
+      </div>
+    </div>
+    <p class="text-slate-500 font-semibold mb-3">Practica sin límites: cualquier comando, sin retos ni vidas. Usa ↑ y ↓ para el historial.</p>
+    <div class="term bg-slate-900 rounded-2xl p-4 h-[28rem] overflow-y-auto text-sm" id="termBody">
+      ${lines}
+      <div class="text-slate-100 flex items-center gap-1">
+        <span class="text-duo-green">estudiante@cli</span><span class="text-duo-blue">:${pathStr(term.cwd)}$</span>
+        <input id="termInput" autocomplete="off" spellcheck="false"
+          class="flex-1 bg-transparent outline-none text-slate-100 caret-duo-green" />
+      </div>
+    </div>
+  </main>`;
+  attachTermInput(term, v => runSandbox(v));
 }
 
 /* ---------- 7. LÓGICA DE JUEGO ---------- */

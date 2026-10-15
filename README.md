@@ -14,13 +14,15 @@ Es una app **autocontenida en un solo archivo HTML** (`cli-duo.html`): no necesi
 - **Fase de práctica tipo Duolingo**: preguntas de opción múltiple + retos en una **terminal real**.
 - **Emulador de terminal con Virtual File System**: los comandos de verdad crean, mueven y borran archivos. Soporta banderas, comodines, redirección, tuberías (`|`) y encadenado (`&&`, `||`).
 - **Gamificación**: XP, vidas (❤️) y rachas diarias (🔥).
+- **Terminal libre (sandbox)**: practica cualquier comando sin retos ni vidas, desde el inicio.
+- **Terminal interactiva**: historial navegable con las flechas ↑ / ↓.
 - **Persistencia** con `localStorage`: el progreso se guarda en el navegador.
 
 ## Comandos incluidos
 
-`pwd` · `ls` (`-l`, `-a`, `-h`) · `cd` · `mkdir` · `touch` · `cat` · `echo` · `cp` · `mv` · `rm` (`-r`) · `head` · `tail` · `wc` · `grep` · `find` · `man` · `history` · `chmod` · `clear` · `help`
+`pwd` · `ls` (`-l`, `-a`, `-h`) · `cd` · `mkdir` · `touch` · `cat` · `echo` · `cp` · `mv` · `rm` (`-r`) · `head` · `tail` · `wc` · `grep` · `find` · `man` · `history` · `chmod` · `export` · `env` · `clear` · `help`
 
-Además: redirección (`>`, `>>`, `<`), tuberías (`|`), encadenado (`&&`, `||`) y comodines (`*`, `?`).
+Además: redirección (`>`, `>>`, `<`), tuberías (`|`), encadenado (`&&`, `||`), comodines (`*`, `?`) y variables de entorno (`$VAR`).
 
 ## Lecciones
 
@@ -35,6 +37,7 @@ Además: redirección (`>`, `>>`, `<`), tuberías (`|`), encadenado (`&&`, `||`)
 | 7 | Buscar y leer | `head`, `tail`, `wc`, `grep`, `find`, `man` |
 | 8 | Tuberías | redirección, `|`, `&&` y `||` |
 | 9 | Permisos | `chmod` |
+| 10 | Variables | `export`, `$VAR`, `env` |
 
 ## Cómo usarla
 
